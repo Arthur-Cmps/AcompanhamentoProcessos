@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background-color: #f4f6f8; /* Fundo claro */
+  color: #334155; /* Texto cinza escuro (leitura melhor em fundo claro) */
+  overflow: hidden;
+}
