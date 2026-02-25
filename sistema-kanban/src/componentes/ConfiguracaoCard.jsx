@@ -2,28 +2,25 @@ import React, { useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { v4 as uuidv4 } from 'uuid';
 import { 
-  Type, FileText, CheckSquare, Calendar, User, Tag, Mail, Phone, Clock, 
-  DollarSign, Hash, CreditCard, Paperclip, ArrowRight, Trash2, Settings, GripVertical, Save, X
+  Type, FileText, CheckSquare, User, Tag, Phone, Clock, 
+  ArrowRight, Trash2, Settings, GripVertical, Save, X, 
+  UploadCloud, AlertTriangle, GitMerge, Layout, DollarSign, Hash, CreditCard, Paperclip, Calendar, Mail
 } from 'lucide-react';
 
-// Definição dos Tipos de Campos
 const FIELD_TYPES = [
-  { type: 'text_short', label: 'Texto Curto', icon: Type },
-  { type: 'text_long', label: 'Texto Longo', icon: FileText },
-  { type: 'dynamic', label: 'Conteúdo Dinâmico', icon: FileText }, // Rich text
-  { type: 'attachment', label: 'Anexo', icon: Paperclip },
-  { type: 'checkbox', label: 'Checkbox', icon: CheckSquare },
-  { type: 'select', label: 'Seleção de Lista', icon: ArrowRight },
-  { type: 'responsible', label: 'Responsável', icon: User },
-  { type: 'date', label: 'Data', icon: Calendar },
-  { type: 'tags', label: 'Etiquetas', icon: Tag },
-  { type: 'email', label: 'Email', icon: Mail },
-  { type: 'phone', label: 'Telefone', icon: Phone },
-  { type: 'time', label: 'Tempo', icon: Clock },
-  { type: 'number', label: 'Numérico', icon: Hash },
-  { type: 'currency', label: 'Moeda', icon: DollarSign },
-  { type: 'document', label: 'CPF/CNPJ', icon: CreditCard },
-  { type: 'id', label: 'ID Automático', icon: Hash },
+  { tipo: 'text', label: 'Texto Curto', icon: Type },
+  { tipo: 'text_long', label: 'Texto Longo', icon: FileText },
+  { tipo: 'anexo', label: 'Anexo', icon: UploadCloud },
+  { tipo: 'checkbox', label: 'Checkbox', icon: CheckSquare },
+  { tipo: 'responsavel', label: 'Responsável', icon: User },
+  { tipo: 'data', label: 'Data', icon: Clock },
+  { tipo: 'etiquetas', label: 'Etiquetas', icon: Tag },
+  { tipo: 'email', label: 'E-mail', icon: Layout }, 
+  { tipo: 'telefone', label: 'Telefone', icon: Phone },
+  { tipo: 'tempo', label: 'Tempo', icon: Clock },
+  { tipo: 'cpf_cnpj', label: 'CPF / CNPJ', icon: FileText },
+  { tipo: 'moeda', label: 'Moeda', icon: FileText },
+  { tipo: 'numerico', label: 'Apenas Números', icon: FileText },
 ];
 
 export default function ConfiguracaoCard({ modeloCard, setModeloCard, setPaginaAtual }) {
@@ -42,13 +39,13 @@ export default function ConfiguracaoCard({ modeloCard, setModeloCard, setPaginaA
       const fieldType = FIELD_TYPES[source.index];
       const newField = {
         id: uuidv4(),
-        type: fieldType.type,
-        label: fieldType.label, // Nome padrão
-        helpText: '',
-        required: false,
+        tipo: fieldType.tipo, // <-- Alterado de 'type' para 'tipo'
+        label: fieldType.label,
+        ajuda: '',
+        obrigatorio: false,
         editableInPhases: true,
-        options: ['Opção 1', 'Opção 2'], // Padrão para selects
-        width: 'full', // full or half
+        opcoes: ['Opção 1', 'Opção 2'], // <-- Alterado de 'options' para 'opcoes'
+        subTipo: fieldType.tipo === 'data' ? 'data' : undefined // Já prepara o subtipo se for data
       };
       
       const novosCampos = Array.from(campos);
@@ -106,21 +103,19 @@ export default function ConfiguracaoCard({ modeloCard, setModeloCard, setPaginaA
             <Droppable droppableId="sidebar-fields" isDropDisabled={true}>
               {(provided) => (
                 <div ref={provided.innerRef} {...provided.droppableProps} className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
-                  {FIELD_TYPES.map((field, index) => (
-                    <Draggable key={field.type} draggableId={field.type} index={index}>
+                  {FIELD_TYPES.map((fieldType, index) => (
+                    <Draggable key={fieldType.tipo} draggableId={fieldType.tipo} index={index}>
                       {(provided, snapshot) => (
                         <div
                           ref={provided.innerRef}
                           {...provided.draggableProps}
                           {...provided.dragHandleProps}
-                          className={`flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-lg shadow-sm hover:border-[#00557f] cursor-grab active:cursor-grabbing transition-all
-                            ${snapshot.isDragging ? 'ring-2 ring-[#00557f] shadow-xl rotate-2' : ''}
-                          `}
+                          className={`flex items-center gap-3 p-3 rounded-xl border mb-2 transition-all ${
+                            snapshot.isDragging ? 'bg-[#00557f] text-white shadow-xl' : 'bg-white text-slate-600 hover:border-[#00557f]'
+                          }`}
                         >
-                          <div className="bg-slate-100 p-2 rounded text-[#00557f]">
-                            <field.icon size={16} />
-                          </div>
-                          <span className="text-sm font-medium text-slate-700">{field.label}</span>
+                          <fieldType.icon size={18} />
+                          <span className="text-sm font-medium">{fieldType.label}</span>
                         </div>
                       )}
                     </Draggable>
@@ -217,22 +212,44 @@ export default function ConfiguracaoCard({ modeloCard, setModeloCard, setPaginaA
                                 </div>
 
                                 {/* Opções para Checkbox/Select */}
-                                {(campo.type === 'checkbox' || campo.type === 'select') && (
-                                    <div className="mb-4">
-                                        <label className="block text-xs font-bold text-slate-500 mb-1">Opções (Separadas por vírgula)</label>
-                                        <textarea 
+                                {campo.tipo === 'data' && (
+                                    <div className="mb-4 p-3 bg-white rounded border border-slate-200">
+                                        <label className="block text-xs font-bold text-[#00557f] mb-1">Tipo de Calendário</label>
+                                        <select 
                                             className="w-full p-2 text-sm border rounded focus:border-[#00557f] outline-none"
-                                            value={campoEmEdicao.options.join(', ')}
+                                            value={campoEmEdicao.subTipo || 'data'}
                                             onChange={(e) => {
-                                                const atualizado = { ...campoEmEdicao, options: e.target.value.split(',').map(s => s.trim()) };
+                                                const atualizado = { ...campoEmEdicao, subTipo: e.target.value };
                                                 setCampoEmEdicao(atualizado);
                                                 setCampos(campos.map(c => c.id === campo.id ? atualizado : c));
                                             }}
-                                        />
+                                        >
+                                            <option value="data">Apenas Data</option>
+                                            <option value="data_hora">Data e Hora</option>
+                                            <option value="data_vencimento">Data de Vencimento (Destaque)</option>
+                                        </select>
                                     </div>
                                 )}
 
-                                <div className="flex gap-6 border-t border-slate-200 pt-3">
+                                {campo.tipo === 'checkbox' && (
+                                  <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                                    <label className="flex items-center gap-2 text-sm font-bold text-[#00557f] cursor-pointer">
+                                      <input 
+                                        type="checkbox" 
+                                        checked={campoEmEdicao.aceitaMultiplo || false}
+                                        onChange={(e) => {
+                                          const atualizado = { ...campoEmEdicao, aceitaMultiplo: e.target.checked };
+                                          setCampoEmEdicao(atualizado);
+                                          setCampos(campos.map(c => c.id === campo.id ? atualizado : c));
+                                        }}
+                                      />
+                                      Permitir selecionar mais de uma opção
+                                    </label>
+                                    <p className="text-[10px] text-slate-500 mt-1">Se desmarcado, funcionará como escolha única.</p>
+                                  </div>
+                                )}
+
+                                <div className="flex gap-6 border-t border-slate-00 pt-3">
                                   <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none">
                                     <input type="checkbox" checked={campoEmEdicao.required} 
                                       onChange={(e) => {

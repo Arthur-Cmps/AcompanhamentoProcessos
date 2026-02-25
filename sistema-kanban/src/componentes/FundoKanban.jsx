@@ -12,7 +12,7 @@ const TIPOS_DE_CAMPOS = [
   { tipo: 'text', label: 'Texto Curto', icon: Type },
   { tipo: 'text_long', label: 'Texto Longo', icon: FileText },
   { tipo: 'anexo', label: 'Anexo', icon: UploadCloud },
-  { tipo: 'checkbox', label: 'Caixa de Seleção', icon: CheckSquare },
+  { tipo: 'checkbox', label: 'Checkbox', icon: CheckSquare },
   { tipo: 'responsavel', label: 'Responsável', icon: User },
   { tipo: 'data', label: 'Data', icon: Clock },
   { tipo: 'data_hora', label: 'Data e Hora', icon: Clock },
@@ -41,7 +41,7 @@ export const NotificacaoToast = ({ mensagem, visivel }) => {
 // ==========================================
 // RENDERIZADOR DINÂMICO DE CAMPOS
 // ==========================================
-const CampoDinamico = ({ campo, register, equipe, setValue, watch }) => {
+export const CampoDinamico = ({ campo, register, equipe, setValue, watch, dados }) => {
     const estiloBase = "w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#5fb0a5] focus:ring-4 focus:ring-[#5fb0a5]/10 transition-all text-sm font-medium text-slate-700 shadow-sm";
     
     const moedas = [
@@ -74,8 +74,28 @@ const CampoDinamico = ({ campo, register, equipe, setValue, watch }) => {
             );
 
         case 'data':
-            return <input type="date" className={estiloBase} {...register(campo.id, { required: campo.obrigatorio })} />;
+            // O subTipo é definido pelo ADM na configuração
+            const tipoData = campo.subTipo || 'data'; 
 
+            if (tipoData === 'data_hora') {
+                return <input type="datetime-local" className={estiloBase} {...register(campo.id, { required: campo.obrigatorio })} />;
+            }
+            
+            if (tipoData === 'data_vencimento') {
+                return (
+                    <div className="relative">
+                        <input 
+                            type="date" 
+                            className={`${estiloBase} border-red-200 text-red-600 font-bold focus:border-red-500 focus:ring-red-100`} 
+                            {...register(campo.id, { required: campo.obrigatorio })} 
+                        />
+                        <div className="absolute right-3 top-3.5 text-red-400"><AlertTriangle size={18}/></div>
+                    </div>
+                );
+        }
+
+        // Padrão: Apenas Data
+        return <input type="date" className={estiloBase} {...register(campo.id, { required: campo.obrigatorio })} />;
         case 'data_hora':
             return <input type="datetime-local" className={estiloBase} {...register(campo.id, { required: campo.obrigatorio })} />;
 
@@ -92,25 +112,38 @@ const CampoDinamico = ({ campo, register, equipe, setValue, watch }) => {
             );
             
         case 'etiquetas':
-            // Simulação de tags (para produção ideal usar react-select ou biblioteca de tags)
-            return (
-                 <input 
-                    type="text" 
-                    placeholder="Digite tags separadas por vírgula (ex: urgente, bug, design)"
-                    className={estiloBase} 
-                    {...register(campo.id, { required: campo.obrigatorio })} 
-                />
-            );
+        // Busca etiquetas já usadas em outros cards para sugerir
+        const etiquetasSugeridas = Object.values(dados?.cards || {})
+            .map(c => c.dados?.[campo.id])
+            .filter(Boolean)
+            .flat();
+        const etiquetasUnicas = [...new Set(etiquetasSugeridas)];
+
+        return (
+            <div className="space-y-2">
+                <input type="text" className={estiloBase} placeholder="Digite a etiqueta..." {...register(campo.id)} />
+                <div className="flex gap-2 overflow-x-auto py-1 custom-scrollbar">
+                    {etiquetasUnicas.map((tag, idx) => (
+                        <button key={idx} type="button" onClick={() => setValue(campo.id, tag)} className="px-3 py-1 bg-slate-100 hover:bg-[#5fb0a5] hover:text-white rounded-full text-[10px] font-bold transition-all whitespace-nowrap">
+                            + {tag}
+                        </button>
+                    ))}
+                </div>
+            </div>
+        );
 
         case 'email':
             return (
                 <input 
                     type="email" 
-                    placeholder="exemplo@email.com"
-                    className={estiloBase} 
+                    placeholder="exemplo@dominio.com"
+                    className={estiloBase}
                     {...register(campo.id, { 
                         required: campo.obrigatorio,
-                        pattern: { value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i, message: "Email inválido" }
+                        pattern: {
+                            value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                            message: "Email inválido"
+                        }
                     })} 
                 />
             );
@@ -120,49 +153,96 @@ const CampoDinamico = ({ campo, register, equipe, setValue, watch }) => {
                 <input 
                     type="tel" 
                     placeholder="(00) 00000-0000"
-                    className={estiloBase} 
-                    {...register(campo.id, { required: campo.obrigatorio })} 
+                    className={estiloBase}
+                    {...register(campo.id, { 
+                        required: campo.obrigatorio,
+                        pattern: {
+                            value: /^\(?\d{2}\)?\s?\d{4,5}-?\d{4}$/,
+                            message: "Telefone inválido"
+                        }
+                    })} 
                 />
-            );
+        );
 
         case 'tempo':
             return <input type="time" className={estiloBase} {...register(campo.id, { required: campo.obrigatorio })} />;
 
         case 'cpf_cnpj':
-            return (
+            const [tipoDoc, setTipoDoc] = useState('cpf'); // Adicione este estado no topo do componente ou controle via watch
+            
+            const validarDoc = (valor) => {
+                const limpo = valor.replace(/\D/g, '');
+                if (tipoDoc === 'cpf' && limpo.length !== 11) return "CPF deve ter 11 números";
+                if (tipoDoc === 'cnpj' && limpo.length !== 14) return "CNPJ deve ter 14 números";
+                return true;
+            };
+
+        return (
+            <div className="space-y-3">
+                <div className="flex gap-2">
+                    <button type="button" onClick={() => setTipoDoc('cpf')} className={`flex-1 py-1.5 text-xs font-bold rounded-lg border transition-all ${tipoDoc === 'cpf' ? 'bg-[#00557f] text-white border-[#00557f]' : 'bg-white text-slate-400 border-slate-200'}`}>CPF</button>
+                    <button type="button" onClick={() => setTipoDoc('cnpj')} className={`flex-1 py-1.5 text-xs font-bold rounded-lg border transition-all ${tipoDoc === 'cnpj' ? 'bg-[#00557f] text-white border-[#00557f]' : 'bg-white text-slate-400 border-slate-200'}`}>CNPJ</button>
+                </div>
                 <input 
                     type="text" 
-                    placeholder="000.000.000-00 ou 00.000.000/0000-00"
-                    className={estiloBase} 
-                    {...register(campo.id, { required: campo.obrigatorio })} 
+                    placeholder={tipoDoc === 'cpf' ? "000.000.000-00" : "00.000.000/0000-00"}
+                    maxLength={tipoDoc === 'cpf' ? 14 : 18}
+                    className={estiloBase}
+                    {...register(campo.id, { 
+                        required: campo.obrigatorio,
+                        validate: validarDoc
+                    })}
                 />
-            );
+            </div>
+        );
 
         case 'moeda':
             return (
                 <div className="flex gap-2">
-                    <select className="w-1/3 p-3.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-[#5fb0a5]" {...register(`${campo.id}_tipo_moeda`)}>
-                        {moedas.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-                    </select>
-                    <input 
-                        type="number" 
-                        step="0.01" 
-                        placeholder="0,00" 
-                        className={`flex-1 ${estiloBase}`} 
-                        {...register(campo.id, { required: campo.obrigatorio })} 
-                    />
+                <select className="p-2 border rounded-lg bg-slate-50 text-sm">
+                <option>BRL (R$)</option>
+                <option>USD ($)</option>
+                <option>EUR (€)</option>
+                </select>
+                <input
+                type="number"
+                placeholder="0,00"
+                className="flex-1 p-2 border rounded-lg focus:ring-2 focus:ring-[#00557f] outline-none"
+                {...register(campo.id, { required: campo.obrigatorio })}
+                />
                 </div>
             );
 
         case 'numerico':
-            return <input type="number" className={estiloBase} {...register(campo.id, { required: campo.obrigatorio })} />;
+            return <input
+            type="number"
+            className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-[#00557f] outline-none"
+            {...register(campo.id, { required: campo.obrigatorio })}
+            onKeyPress={(e) => { if (!/[0-9]/.test(e.key)) e.preventDefault(); }}
+        />;
 
         case 'checkbox':
             return (
-                <div className="flex items-center gap-3 p-2">
-                    <input type="checkbox" className="w-5 h-5 rounded border-slate-300 text-[#5fb0a5] focus:ring-[#5fb0a5]" {...register(campo.id)} />
-                    <span className="text-sm text-slate-600 font-medium">Confirmar esta opção</span>
-                </div>
+            <div className="space-y-2">
+                {campo.opcoes?.map((opcao) => (
+                <label key={opcao} className="flex items-center gap-2 p-2 border rounded-lg hover:bg-slate-50 cursor-pointer">
+                    <input
+                    type="checkbox"
+                    value={opcao}
+                    {...register(campo.id, { required: campo.obrigatorio })}
+                    // Lógica para múltipla escolha: se 'multiplo' for false, agimos como radio
+                    onClick={(e) => {
+                        if (!campo.aceitaMultiplo) {
+                        const checkboxes = document.getElementsByName(campo.id);
+                        checkboxes.forEach(cb => { if(cb !== e.target) cb.checked = false; });
+                        }
+                    }}
+                    className="rounded border-slate-300 text-[#00557f] focus:ring-[#00557f]"
+                    />
+                    <span className="text-sm text-slate-600">{opcao}</span>
+                </label>
+                ))}
+            </div>
             );
 
         default:
@@ -185,6 +265,25 @@ const ModalConfigFase = ({ coluna, fechar, salvarConfig, deletarFase, mostrarNot
     const removerCampo = (id) => {
         setCampos(campos.filter(c => c.id !== id));
         if (campoEmEdicao?.id === id) setCampoEmEdicao(null);
+        {/* Adicione isso dentro das configurações de campo do ADM */}
+        {campoEmEdicao.tipo === 'data' && (
+            <div className="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <label className="block text-xs font-bold text-[#00557f] mb-2 uppercase">Tipo de Calendário</label>
+                <select 
+                    className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm"
+                    value={campoEmEdicao.subTipo || 'data'}
+                    onChange={(e) => {
+                        const atualizado = { ...campoEmEdicao, subTipo: e.target.value };
+                        setCampoEmEdicao(atualizado);
+                        setCampos(campos.map(c => c.id === campo.id ? atualizado : c));
+                    }}
+                >
+                    <option value="data">Apenas Data (Calendário)</option>
+                    <option value="data_hora">Data e Hora (Calendário + Relógio)</option>
+                    <option value="data_vencimento">Data de Vencimento (Destaque Vermelho)</option>
+                </select>
+            </div>
+        )}
         mostrarNotificacao("Campo removido.");
     };
 
@@ -239,14 +338,14 @@ const ModalConfigFase = ({ coluna, fechar, salvarConfig, deletarFase, mostrarNot
             <div className="bg-white/95 backdrop-blur-2xl rounded-[2rem] shadow-[0_0_50px_rgba(0,85,127,0.4)] w-full max-w-[1100px] h-[85vh] flex flex-col overflow-hidden border border-white/40 animate-in zoom-in-95 duration-300">
                 <div className="px-8 py-6 border-b border-slate-200/50 flex justify-between items-center bg-gradient-to-r from-slate-50 to-white">
                     <div>
-                        <span className="text-[10px] font-bold text-[#5fb0a5] uppercase tracking-[0.2em]">Construtor de Fase</span>
+                        <span className="text-[10px] font-bold text-[#5fb0a5] uppercase tracking-[0.2em]">Construa sua Fase</span>
                         <h3 className="text-2xl font-black text-[#00557f] flex items-center gap-3">
                             <Settings className="text-[#5fb0a5]" size={28} /> {coluna.title}
                         </h3>
                     </div>
                     <div className="flex gap-4">
                         <button onClick={() => { if(window.confirm('Excluir fase permanentemente?')) { deletarFase(coluna.id); fechar(); } }} className="flex items-center gap-2 px-5 py-2.5 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white rounded-xl font-bold transition-all text-sm border border-red-100 hover:border-red-500 shadow-sm">
-                            <Trash2 size={16}/> Excluir essa fase
+                            <Trash2 size={16}/> 
                         </button>
                         <button onClick={fechar} className="p-2.5 text-slate-400 hover:bg-slate-100 rounded-full transition-colors"><X size={24}/></button>
                     </div>
@@ -360,8 +459,8 @@ const ModalEditarCard = ({ card, dados, setDados, modeloCard, fechar, equipe, mo
     const colunaAtual = dados.columns[colunaAtualId];
     const camposFase = colunaAtual.configuracaoEntrada || [];
     
-    const { register, handleSubmit, setValue, watch } = useForm({
-        defaultValues: card.dadosFases?.[colunaAtualId] || {}
+    const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm({
+    defaultValues: card.dadosFases?.[colunaAtualId] || {}
     });
 
     const moverCard = (destinoColId) => {
@@ -416,26 +515,82 @@ const ModalEditarCard = ({ card, dados, setDados, modeloCard, fechar, equipe, mo
                     <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
                         <div>
                             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Dados Iniciais</h4>
-                            <div className="space-y-3">
-                                {modeloCard.map(field => {
-                                    const val = card.dados[field.id];
-                                    if(!val) return null;
-                                    return (
-                                        <div key={field.id} className="text-sm">
-                                            <p className="font-bold text-slate-600">{field.label}</p>
-                                            <p className="text-slate-500 bg-white border border-slate-200 p-2 rounded mt-1 overflow-hidden text-ellipsis whitespace-nowrap">
-                                                {Array.isArray(val) ? val.join(', ') : val.toString()}
-                                            </p>
-                                        </div>
-                                    )
-                                })}
+                            {/* Dentro do formulário de Criar Card */}
+                            <div className="space-y-4">
+                                {modeloCard.map((campo) => (
+                                    <div key={campo.id} className="flex flex-col gap-1">
+                                        <label className="text-sm font-bold text-slate-700">
+                                            {campo.label} {campo.obrigatorio && <span className="text-red-500">*</span>}
+                                        </label>
+                                        {campo.ajuda && <p className="text-[11px] text-slate-400 mb-1">{campo.ajuda}</p>}
+                                        
+                                        {/* CHAMADA DO COMPONENTE INTELIGENTE */}
+                                        <CampoDinamico 
+                                            campo={campo} 
+                                            register={register} 
+                                            equipe={equipe} 
+                                            setValue={setValue} 
+                                            watch={watch} 
+                                        />
+                                        
+                                        {/* Validação de erro (Email, CPF, etc) */}
+                                        {errors[campo.id] && (
+                                            <span className="text-[10px] text-red-500 font-bold mt-1">
+                                                {errors[campo.id].message || 'Campo obrigatório'}
+                                            </span>
+                                        )}
+                                    </div>
+                                ))}
                             </div>
                         </div>
+
+                        {/* HISTÓRICO EXPANSÍVEL POR FASE */}
                         <div className="pt-4 border-t border-slate-200">
-                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Histórico</h4>
-                            <div className="text-xs text-slate-500 space-y-2">
-                                <div className="flex items-center gap-2"><Clock size={12}/> <span>Criado em {new Date(card.criadoEm || Date.now()).toLocaleDateString()}</span></div>
-                                <div className="flex items-center gap-2"><User size={12}/> <span>Por: {card.criadoPor || 'Usuário'}</span></div>
+                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Histórico de Fases</h4>
+                            <div className="space-y-2">
+                                {Object.entries(card.dadosFases || {}).map(([faseId, dadosFase]) => {
+                                    const nomeFase = dados.columns[faseId]?.title || "Fase Antiga";
+                                    const [aberto, setAberto] = useState(false); // Você pode gerenciar um array de IDs abertos
+
+                                    return (
+                                        <div key={faseId} className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                                            <button 
+                                                onClick={() => setAberto(!aberto)}
+                                                className="w-full p-3 flex justify-between items-center bg-slate-50 hover:bg-slate-100 transition-colors"
+                                            >
+                                                <span className="text-xs font-bold text-[#00557f]">{nomeFase}</span>
+                                                <ChevronRight size={14} className={`transition-transform ${aberto ? 'rotate-90' : ''}`} />
+                                            </button>
+                                            
+                                            {aberto && (
+                                                <div className="p-3 space-y-3 bg-white animate-in slide-in-from-top-2">
+                                                    {Object.entries(dadosFase).map(([campoId, valor]) => {
+                                                        // Lógica para Anexo (Simulação de abertura local)
+                                                        if (valor instanceof FileList || (typeof valor === 'string' && valor.includes('fakepath'))) {
+                                                            return (
+                                                                <div key={campoId} className="p-2 bg-[#5fb0a5]/5 border border-[#5fb0a5]/20 rounded-lg flex items-center justify-between">
+                                                                    <span className="text-xs font-medium text-slate-600 truncate">{valor.name || "Documento Anexo"}</span>
+                                                                    <button 
+                                                                        onClick={() => window.open(URL.createObjectURL(valor[0]), '_blank')}
+                                                                        className="text-[10px] font-bold text-[#5fb0a5] hover:underline"
+                                                                    >
+                                                                        ABRIR ARQUIVO
+                                                                    </button>
+                                                                </div>
+                                                            );
+                                                        }
+                                                        return (
+                                                            <div key={campoId} className="text-xs border-b border-slate-50 pb-2">
+                                                                <p className="text-slate-400 text-[10px] mb-1">Campo: {campoId}</p>
+                                                                <p className="text-slate-700 font-medium">{valor}</p>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>
@@ -638,10 +793,20 @@ export default function FundoKanban({ dados, setDados, usuarioAtual, logado, mod
                             {(provided) => (
                             <div className="w-[320px] flex-none bg-slate-100 rounded-2xl flex flex-col max-h-full border border-slate-200 shadow-sm"
                                 ref={provided.innerRef} {...provided.draggableProps}>
-                                
+                                {/* Nessa parte eu mexo no titulo das fases */}
                                 <div className="p-3 bg-white rounded-t-2xl border-b border-slate-200 flex justify-between items-center group h-14" {...provided.dragHandleProps}>
                                     <div className="flex items-center gap-2 w-full overflow-hidden">
-                                        <h3 className="font-bold text-slate-700 text-sm uppercase truncate flex-1">{column.title}</h3>
+                                        <input 
+                                            className="font-bold text-slate-700 text-sm uppercase truncate flex-1 bg-transparent hover:bg-slate-50 border-none focus:ring-2 focus:ring-[#5fb0a5] rounded px-1 outline-none transition-all"
+                                            value={column.title}
+                                            onChange={(e) => {
+                                                const novasColunas = {
+                                                    ...dados.columns,
+                                                    [column.id]: { ...column, title: e.target.value }
+                                                };
+                                                setDados({ ...dados, columns: novasColunas });
+                                            }}
+                                    />
                                         <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-0.5 rounded-full border border-slate-200">{cards.length}</span>
                                         <button onClick={() => setConfigColunaId(column.id)} className="p-1.5 text-slate-300 hover:text-[#00557f] hover:bg-slate-50 rounded transition-colors" title="Configurar Campos desta Fase"><Settings size={14} /></button>
                                         <button onClick={() => adicionarCardNaColuna(column.id)} className="p-1.5 bg-[#5fb0a5] text-white rounded hover:bg-[#4a9c91] transition-transform hover:scale-105 shadow-sm"><Plus size={14} strokeWidth={3} /></button>

@@ -2,13 +2,14 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { v4 as uuidv4 } from 'uuid';
 import { ArrowLeft, Check, AlertTriangle } from 'lucide-react';
+import { CampoDinamico } from './FundoKanban';
 
 export default function NovoCard({ modeloCard, dadosKanban, setDadosKanban, setPaginaAtual, usuarioAtual, equipe, colunaAlvo }) {
-  const { register, handleSubmit, formState: { errors } } = useForm();
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm();;
 
   const onSubmit = (data) => {
     const cardId = uuidv4();
-    const campoTitulo = modeloCard.find(c => c.type === 'text_short' || c.type === 'id');
+    const campoTitulo = modeloCard.find(c => c.tipo === 'text' || c.tipo === 'text_short');
     const tituloCard = campoTitulo ? data[campoTitulo.id] : "Novo Card";
 
     const novoCard = {
@@ -43,49 +44,6 @@ export default function NovoCard({ modeloCard, dadosKanban, setDadosKanban, setP
     setPaginaAtual('inicio');
   };
 
-  const renderField = (field) => {
-    const commonProps = {
-      ...register(field.id, { required: field.required ? "Este campo é obrigatório" : false }),
-      className: `w-full p-3 bg-white border ${errors[field.id] ? 'border-red-500' : 'border-slate-300'} rounded-lg focus:ring-2 focus:ring-[#00557f]/20 focus:border-[#00557f] outline-none transition-all`
-    };
-
-    switch (field.type) {
-      case 'text_long': return <textarea {...commonProps} rows={4} />;
-      case 'select':
-        return (
-          <select {...commonProps}>
-            <option value="">Selecione...</option>
-            {field.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-          </select>
-        );
-      case 'responsible':
-         return (
-            <select {...commonProps} multiple className={`${commonProps.className} h-32`}>
-                {equipe.map(pessoa => <option key={pessoa} value={pessoa}>{pessoa}</option>)}
-            </select>
-         );
-      case 'checkbox':
-        return (
-            <div className="space-y-2">
-                {field.options?.map((opt, idx) => (
-                    <label key={idx} className="flex items-center gap-2 text-sm text-slate-700">
-                        <input type="checkbox" value={opt} {...register(field.id)} className="w-4 h-4 text-[#00557f] rounded focus:ring-[#00557f]" />
-                        {opt}
-                    </label>
-                ))}
-            </div>
-        );
-      case 'currency':
-        return (
-            <div className="relative">
-                <span className="absolute left-3 top-3 text-slate-400">R$</span>
-                <input type="number" step="0.01" {...commonProps} className={`${commonProps.className} pl-10`} />
-            </div>
-        );
-      default: return <input type={field.type === 'date' ? 'date' : 'text'} {...commonProps} />;
-    }
-  };
-
   return (
     /* ADICIONADO overflow-y-auto e h-full NO CONTAINER PRINCIPAL PARA HABILITAR SCROLL */
     <div className="h-full w-full overflow-y-auto bg-slate-50 p-8 flex justify-center custom-scrollbar">
@@ -108,14 +66,24 @@ export default function NovoCard({ modeloCard, dadosKanban, setDadosKanban, setP
                   <p className="text-slate-500 font-medium">O administrador ainda não configurou o modelo de card.</p>
               </div>
           ) : (
-            modeloCard.map((field) => (
+           modeloCard.map((field) => (
                 <div key={field.id} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
                     <label className="block text-sm font-bold text-slate-700 mb-2">
-                        {field.label} {field.required && <span className="text-red-500">*</span>}
+                        {field.label} {field.obrigatorio && <span className="text-red-500">*</span>}
                     </label>
-                    {field.helpText && <p className="text-xs text-slate-400 mb-2 -mt-1">{field.helpText}</p>}
-                    {renderField(field)}
-                    {errors[field.id] && <span className="text-xs text-red-500 mt-1 block font-medium">{errors[field.id].message}</span>}
+                    {field.ajuda && <p className="text-xs text-slate-400 mb-2 -mt-1">{field.ajuda}</p>}
+                    
+                    {/* A MÁGICA ACONTECE AQUI: */}
+                    <CampoDinamico 
+                        campo={field} 
+                        register={register} 
+                        equipe={equipe} 
+                        setValue={setValue} 
+                        watch={watch} 
+                        dados={dadosKanban} 
+                    />
+
+                    {errors[field.id] && <span className="text-xs text-red-500 mt-1 block font-medium">{errors[field.id].message || "Campo inválido"}</span>}
                 </div>
             ))
           )}

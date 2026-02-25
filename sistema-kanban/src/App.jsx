@@ -11,8 +11,16 @@ import ConfiguracaoCard from './componentes/ConfiguracaoCard';
 import NovoCard from './componentes/NovoCard';
 
 // Imagens (Mantenha seus imports de imagem aqui...)
-import Logogpsergipe from './assets/logogpsergipe.png'; 
-// ... outros logos
+import Logocfl from './assets/logocfl.png'; 
+import Logofm from './assets/logofm.png';
+import Logog1 from './assets/logog1.png';
+import Logoge from './assets/logoge.png'; 
+import Logoglobo from './assets/logoglobo.png';
+import Logotvsergipe from './assets/logotvsergipe.png';
+import Logoseven1 from './assets/logoseven1.png'; 
+import Logoseven2 from './assets/logoseven2.png';
+import Logogpsergipe from './assets/logogpsergipe.png';
+
 
 function App() {
   const [equipe, setEquipe] = useState(["Arthur Campos", "Mariana Silva", "Ricardo Oliveira"]);
@@ -198,8 +206,16 @@ function App() {
           
           {/* Footer mantido */}
           <footer className="flex-none pt-4 flex justify-center opacity-40">
-             <div className="flex gap-4 grayscale scale-90">
-                <img src={Logogpsergipe} className="h-3" alt="GP" />
+             <div className="flex gap-20 grayscale scale-80">
+                <img src={Logocfl} alt="CFL" className="h-6 object-contain" />
+                <img src={Logofm} alt="FM" className="h-6 object-contain" />
+                <img src={Logog1} alt="G1" className="h-6 object-contain" />
+                <img src={Logoge} alt="GE" className="h-6 object-contain" />
+                <img src={Logoglobo} alt="Globo" className="h-6 object-contain" />
+                <img src={Logotvsergipe} alt="TV Sergipe" className="h-6 object-contain" />
+                <img src={Logoseven1} alt="Seven 1" className="h-6 object-contain" />
+                <img src={Logoseven2} alt="Seven 2" className="h-6 object-contain" />
+                <img src={Logogpsergipe} alt="Gp Sergipe" className="h-8 object-contain" />
              </div>
           </footer>
         </div>
