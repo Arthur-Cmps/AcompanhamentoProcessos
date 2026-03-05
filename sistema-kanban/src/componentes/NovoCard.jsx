@@ -5,7 +5,10 @@ import { ArrowLeft, Check, AlertTriangle } from 'lucide-react';
 import { CampoDinamico } from './FundoKanban';
 
 export default function NovoCard({ modeloCard, dadosKanban, setDadosKanban, setPaginaAtual, usuarioAtual, equipe, colunaAlvo }) {
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm();;
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm();
+  
+  // O 'olho' do formulário: vigia cada tecla digitada em tempo real
+  const valoresAtuais = watch(); 
 
   const onSubmit = (data) => {
     const cardId = uuidv4();
@@ -20,7 +23,6 @@ export default function NovoCard({ modeloCard, dadosKanban, setDadosKanban, setP
       criadoEm: new Date().toISOString(),
     };
 
-    // Usa a colunaAlvo (vinda do botão +) ou a primeira coluna
     const idColunaDestino = colunaAlvo || dadosKanban.columnOrder[0];
     const colunaObj = dadosKanban.columns[idColunaDestino];
 
@@ -36,7 +38,7 @@ export default function NovoCard({ modeloCard, dadosKanban, setDadosKanban, setP
         ...dadosKanban.columns,
         [idColunaDestino]: {
           ...colunaObj,
-          cardIds: [cardId, ...colunaObj.cardIds] // Topo da lista
+          cardIds: [cardId, ...colunaObj.cardIds]
         }
       }
     });
@@ -44,13 +46,60 @@ export default function NovoCard({ modeloCard, dadosKanban, setDadosKanban, setP
     setPaginaAtual('inicio');
   };
 
+  const verificarSeCampoDeveAparecer = (idDoCampoAtual) => {
+  const idColunaDestino = colunaAlvo || dadosKanban.columnOrder[0];
+  const colunaObj = dadosKanban.columns[idColunaDestino];
+  const listaDeRegras = colunaObj?.regrasCondicionais || [];
+  
+  if (listaDeRegras.length === 0) return true;
+
+  let campoDeveAparecer = true;
+  let campoFoiAfetado = false;
+
+  for (const regra of listaDeRegras) {
+    const regraPositiva = regra.acoesPositivas?.find(a => a.campoId === idDoCampoAtual);
+    const regraNegativa = regra.acoesNegativas?.find(a => a.campoId === idDoCampoAtual);
+
+    if (!regraPositiva && !regraNegativa) continue;
+
+    campoFoiAfetado = true;
+
+    // Se existe uma regra mandando EXIBIR o campo sob condição, 
+    // o estado inicial dele deve ser ESCONDIDO (false)
+    if (regraPositiva && regraPositiva.acao === 'exibir') {
+        campoDeveAparecer = false;
+    }
+
+    const idCampoGatilho = regra.cenarios[0]?.campoId;
+    const valorGatilho = valoresAtuais[idCampoGatilho];
+    
+    // Verifica se o usuário interagiu/preencheu o campo gatilho
+    const cenarioAconteceu = valorGatilho !== undefined && 
+                             valorGatilho !== null && 
+                             valorGatilho.toString().trim() !== "" && 
+                             valorGatilho !== false;
+
+    if (cenarioAconteceu) {
+      if (regraPositiva) {
+        campoDeveAparecer = regraPositiva.acao === 'exibir';
+      }
+    } else {
+      // Se não preencheu, e houver uma regra negativa específica (ex: esconder se vazio)
+      if (regraNegativa) {
+        campoDeveAparecer = regraNegativa.acao === 'exibir';
+      }
+    }
+  }
+
+  return campoFoiAfetado ? campoDeveAparecer : true;
+};
+
   return (
-    /* ADICIONADO overflow-y-auto e h-full NO CONTAINER PRINCIPAL PARA HABILITAR SCROLL */
     <div className="h-full w-full overflow-y-auto bg-slate-50 p-8 flex justify-center custom-scrollbar">
       <div className="w-full max-w-3xl bg-white rounded-2xl shadow-xl border border-slate-200 flex flex-col min-h-min mb-10">
         
         <div className="p-6 border-b border-slate-100 flex items-center gap-4 bg-white rounded-t-2xl sticky top-0 z-10">
-            <button onClick={() => setPaginaAtual('inicio')} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-[#00557f]">
+            <button onClick={() => setPaginaAtual('inicio')} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-[#00557f] transition-colors">
                 <ArrowLeft size={20}/>
             </button>
             <div>
@@ -61,31 +110,43 @@ export default function NovoCard({ modeloCard, dadosKanban, setDadosKanban, setP
 
         <form onSubmit={handleSubmit(onSubmit)} className="p-8 space-y-6 flex-1">
           {modeloCard.length === 0 ? (
-              <div className="text-center py-10 bg-slate-50 rounded-xl border border-dashed border-slate-300">
-                  <AlertTriangle className="mx-auto text-yellow-500 mb-2" size={30} />
-                  <p className="text-slate-500 font-medium">O administrador ainda não configurou o modelo de card.</p>
-              </div>
+            <div className="text-center py-10 bg-slate-50 rounded-xl border border-dashed border-slate-300">
+              <AlertTriangle className="mx-auto text-yellow-500 mb-2" size={30} />
+              <p className="text-slate-500 font-medium">O administrador ainda não configurou o modelo de card.</p>
+            </div>
           ) : (
-           modeloCard.map((field) => (
-                <div key={field.id} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                    <label className="block text-sm font-bold text-slate-700 mb-2">
-                        {field.label} {field.obrigatorio && <span className="text-red-500">*</span>}
-                    </label>
-                    {field.ajuda && <p className="text-xs text-slate-400 mb-2 -mt-1">{field.ajuda}</p>}
-                    
-                    {/* A MÁGICA ACONTECE AQUI: */}
-                    <CampoDinamico 
-                        campo={field} 
-                        register={register} 
-                        equipe={equipe} 
-                        setValue={setValue} 
-                        watch={watch} 
-                        dados={dadosKanban} 
-                    />
+            modeloCard.map((field) => {
+              
+              // O FILTRO É APLICADO AQUI!
+              const visivel = verificarSeCampoDeveAparecer(field.id);
+              
+              // Se a regra disser que não é para ver, o React aborta a criação do campo
+              if (!visivel) return null;
 
-                    {errors[field.id] && <span className="text-xs text-red-500 mt-1 block font-medium">{errors[field.id].message || "Campo inválido"}</span>}
+              return (
+                <div key={field.id} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                  <label className="block text-sm font-bold text-slate-700 mb-2">
+                    {field.label} {field.obrigatorio && <span className="text-red-500">*</span>}
+                  </label>
+                  {field.ajuda && <p className="text-xs text-slate-400 mb-2 -mt-1">{field.ajuda}</p>}
+                  
+                  <CampoDinamico 
+                    campo={field} 
+                    register={register} 
+                    equipe={equipe} 
+                    setValue={setValue} 
+                    watch={watch} 
+                    dados={dadosKanban} 
+                  />
+
+                  {errors[field.id] && (
+                    <span className="text-xs text-red-500 mt-1 block font-medium">
+                      {errors[field.id].message || "Campo inválido"}
+                    </span>
+                  )}
                 </div>
-            ))
+              );
+            })
           )}
 
           {modeloCard.length > 0 && (

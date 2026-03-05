@@ -19,43 +19,39 @@ const FIELD_TYPES = [
   { tipo: 'telefone', label: 'Telefone', icon: Phone },
   { tipo: 'tempo', label: 'Tempo', icon: Clock },
   { tipo: 'cpf_cnpj', label: 'CPF / CNPJ', icon: FileText },
-  { tipo: 'moeda', label: 'Moeda', icon: FileText },
-  { tipo: 'numerico', label: 'Apenas Números', icon: FileText },
+  { tipo: 'moeda', label: 'Moeda', icon: DollarSign },
+  { tipo: 'numerico', label: 'Apenas Números', icon: Hash },
 ];
 
 export default function ConfiguracaoCard({ modeloCard, setModeloCard, setPaginaAtual }) {
   const [campos, setCampos] = useState(modeloCard);
   const [campoEmEdicao, setCampoEmEdicao] = useState(null);
 
-  // Drag and Drop Logic
   const onDragEnd = (result) => {
     const { source, destination } = result;
-
-    // Se soltou fora
     if (!destination) return;
 
-    // Se a fonte é a sidebar (criando novo campo)
     if (source.droppableId === 'sidebar-fields' && destination.droppableId === 'builder-area') {
       const fieldType = FIELD_TYPES[source.index];
       const newField = {
         id: uuidv4(),
-        tipo: fieldType.tipo, // <-- Alterado de 'type' para 'tipo'
+        tipo: fieldType.tipo,
         label: fieldType.label,
-        ajuda: '',
+        helpText: '',
         obrigatorio: false,
         editableInPhases: true,
-        opcoes: ['Opção 1', 'Opção 2'], // <-- Alterado de 'options' para 'opcoes'
-        subTipo: fieldType.tipo === 'data' ? 'data' : undefined // Já prepara o subtipo se for data
+        opcoes: ['Opção 1'], 
+        aceitaMultiplo: true,
+        subTipo: fieldType.tipo === 'data' ? 'data' : undefined
       };
       
       const novosCampos = Array.from(campos);
       novosCampos.splice(destination.index, 0, newField);
       setCampos(novosCampos);
-      setCampoEmEdicao(newField); // Abre config imediatamente
+      setCampoEmEdicao(newField);
       return;
     }
 
-    // Se está reordenando dentro do formulário
     if (source.droppableId === 'builder-area' && destination.droppableId === 'builder-area') {
       const novosCampos = Array.from(campos);
       const [moved] = novosCampos.splice(source.index, 1);
@@ -77,8 +73,6 @@ export default function ConfiguracaoCard({ modeloCard, setModeloCard, setPaginaA
 
   return (
     <div className="h-full flex flex-col bg-slate-50">
-      
-      {/* Header do Editor */}
       <div className="flex-none h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shadow-sm z-10">
         <div>
           <h2 className="text-xl font-bold text-[#00557f]">Editor de Modelo de Card</h2>
@@ -94,8 +88,6 @@ export default function ConfiguracaoCard({ modeloCard, setModeloCard, setPaginaA
 
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="flex-1 flex overflow-hidden">
-          
-          {/* SIDEBAR DE CAMPOS (Source) */}
           <div className="w-72 bg-white border-r border-slate-200 flex flex-col">
             <div className="p-4 border-b border-slate-100 bg-slate-50/50">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Biblioteca de Campos</h3>
@@ -110,7 +102,7 @@ export default function ConfiguracaoCard({ modeloCard, setModeloCard, setPaginaA
                           ref={provided.innerRef}
                           {...provided.draggableProps}
                           {...provided.dragHandleProps}
-                          className={`flex items-center gap-3 p-3 rounded-xl border mb-2 transition-all ${
+                          className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
                             snapshot.isDragging ? 'bg-[#00557f] text-white shadow-xl' : 'bg-white text-slate-600 hover:border-[#00557f]'
                           }`}
                         >
@@ -126,7 +118,6 @@ export default function ConfiguracaoCard({ modeloCard, setModeloCard, setPaginaA
             </Droppable>
           </div>
 
-          {/* ÁREA DE CONSTRUÇÃO (Destination) */}
           <div className="flex-1 bg-[#f4f6f8] overflow-y-auto p-8 flex justify-center custom-scrollbar">
             <div className="w-full max-w-2xl">
               <Droppable droppableId="builder-area">
@@ -157,12 +148,11 @@ export default function ConfiguracaoCard({ modeloCard, setModeloCard, setPaginaA
                               ${snapshot.isDragging ? 'shadow-2xl z-50' : ''}
                             `}
                           >
-                            {/* Header do Card no Editor */}
                             <div className="flex items-center justify-between p-3 bg-slate-50 border-b border-slate-100 rounded-t-lg">
                               <div className="flex items-center gap-2" {...provided.dragHandleProps}>
                                 <GripVertical size={16} className="text-slate-400 cursor-grab" />
                                 <span className="text-sm font-bold text-slate-700">{campo.label}</span>
-                                {campo.required && <span className="text-red-500 text-xs">*</span>}
+                                {campo.obrigatorio && <span className="text-red-500 text-xs">*</span>}
                               </div>
                               <div className="flex items-center gap-1">
                                 <button onClick={() => setCampoEmEdicao(campoEmEdicao?.id === campo.id ? null : campo)} className="p-1.5 hover:bg-white rounded text-slate-500 hover:text-[#00557f]">
@@ -174,14 +164,12 @@ export default function ConfiguracaoCard({ modeloCard, setModeloCard, setPaginaA
                               </div>
                             </div>
 
-                            {/* Corpo de Pré-visualização Simples */}
                             <div className="p-4" onClick={() => setCampoEmEdicao(campo)}>
-                                <div className="h-10 bg-slate-50 border border-slate-200 rounded w-full flex items-center px-3 text-xs text-slate-400 select-none">
-                                    Simulação de input ({campo.type})
+                                <div className="h-10 bg-slate-50 border border-slate-200 rounded w-full flex items-center px-3 text-xs text-slate-400 select-none uppercase tracking-widest">
+                                    TÍTULO: {campo.tipo}
                                 </div>
                             </div>
 
-                            {/* PAINEL DE CONFIGURAÇÃO (Só aparece se editando) */}
                             {campoEmEdicao?.id === campo.id && (
                               <div className="p-4 border-t border-slate-200 bg-slate-50 rounded-b-lg animate-in slide-in-from-top-2">
                                 <div className="grid grid-cols-2 gap-4 mb-4">
@@ -201,7 +189,7 @@ export default function ConfiguracaoCard({ modeloCard, setModeloCard, setPaginaA
                                     <label className="block text-xs font-bold text-slate-500 mb-1">Texto de Ajuda</label>
                                     <input 
                                         className="w-full p-2 text-sm border rounded focus:border-[#00557f] outline-none"
-                                        value={campoEmEdicao.helpText}
+                                        value={campoEmEdicao.helpText || ''}
                                         onChange={(e) => {
                                             const atualizado = { ...campoEmEdicao, helpText: e.target.value };
                                             setCampoEmEdicao(atualizado);
@@ -211,7 +199,6 @@ export default function ConfiguracaoCard({ modeloCard, setModeloCard, setPaginaA
                                   </div>
                                 </div>
 
-                                {/* Opções para Checkbox/Select */}
                                 {campo.tipo === 'data' && (
                                     <div className="mb-4 p-3 bg-white rounded border border-slate-200">
                                         <label className="block text-xs font-bold text-[#00557f] mb-1">Tipo de Calendário</label>
@@ -226,41 +213,82 @@ export default function ConfiguracaoCard({ modeloCard, setModeloCard, setPaginaA
                                         >
                                             <option value="data">Apenas Data</option>
                                             <option value="data_hora">Data e Hora</option>
-                                            <option value="data_vencimento">Data de Vencimento (Destaque)</option>
+                                            <option value="data_vencimento">Data de Vencimento (Destaque Vermelho)</option>
                                         </select>
                                     </div>
                                 )}
 
                                 {campo.tipo === 'checkbox' && (
-                                  <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                                    <label className="flex items-center gap-2 text-sm font-bold text-[#00557f] cursor-pointer">
-                                      <input 
-                                        type="checkbox" 
-                                        checked={campoEmEdicao.aceitaMultiplo || false}
-                                        onChange={(e) => {
-                                          const atualizado = { ...campoEmEdicao, aceitaMultiplo: e.target.checked };
-                                          setCampoEmEdicao(atualizado);
-                                          setCampos(campos.map(c => c.id === campo.id ? atualizado : c));
-                                        }}
-                                      />
-                                      Permitir selecionar mais de uma opção
-                                    </label>
-                                    <p className="text-[10px] text-slate-500 mt-1">Se desmarcado, funcionará como escolha única.</p>
-                                  </div>
+                                    <div className="mb-4 space-y-4">
+                                        <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                                            <label className="flex items-center gap-2 text-sm font-bold text-[#00557f] cursor-pointer">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={campoEmEdicao.aceitaMultiplo ?? true}
+                                                    onChange={(e) => {
+                                                        const atualizado = { ...campoEmEdicao, aceitaMultiplo: e.target.checked };
+                                                        setCampoEmEdicao(atualizado);
+                                                        setCampos(campos.map(c => c.id === campo.id ? atualizado : c));
+                                                    }}
+                                                />
+                                                Aceitar mais de uma resposta
+                                            </label>
+                                        </div>
+
+                                        <div className="bg-white p-3 rounded-lg border border-slate-200">
+                                            <label className="block text-xs font-bold text-[#00557f] mb-3 uppercase">Gerenciar Alternativas</label>
+                                            <div className="space-y-2">
+                                                {(campoEmEdicao.opcoes || []).map((opcao, idx) => (
+                                                    <div key={idx} className="flex items-center gap-2">
+                                                        <input 
+                                                            className="flex-1 p-2 text-sm border rounded focus:border-[#00557f] outline-none"
+                                                            value={opcao}
+                                                            onChange={(e) => {
+                                                                const novasOpcoes = [...campoEmEdicao.opcoes];
+                                                                novasOpcoes[idx] = e.target.value;
+                                                                const atualizado = { ...campoEmEdicao, opcoes: novasOpcoes };
+                                                                setCampoEmEdicao(atualizado);
+                                                                setCampos(campos.map(c => c.id === campo.id ? atualizado : c));
+                                                            }}
+                                                        />
+                                                        <button type="button" onClick={() => {
+                                                            if(idx === 0) return;
+                                                            const novas = [...campoEmEdicao.opcoes];
+                                                            [novas[idx-1], novas[idx]] = [novas[idx], novas[idx-1]];
+                                                            const atualizado = { ...campoEmEdicao, opcoes: novas };
+                                                            setCampoEmEdicao(atualizado);
+                                                            setCampos(campos.map(c => c.id === campo.id ? atualizado : c));
+                                                        }} className="p-1 bg-slate-100 rounded text-slate-500 hover:bg-slate-200">↑</button>
+                                                        <button type="button" onClick={() => {
+                                                            const novas = [...campoEmEdicao.opcoes];
+                                                            const atualizado = { ...campoEmEdicao, opcoes: novas.filter((_, i) => i !== idx) };
+                                                            setCampoEmEdicao(atualizado);
+                                                            setCampos(campos.map(c => c.id === campo.id ? atualizado : c));
+                                                        }} className="p-1 bg-red-50 rounded text-red-500 hover:bg-red-100"><X size={14}/></button>
+                                                    </div>
+                                                ))}
+                                                <button type="button" onClick={() => {
+                                                    const atualizado = { ...campoEmEdicao, opcoes: [...(campoEmEdicao.opcoes || []), `Nova Opção ${(campoEmEdicao.opcoes?.length || 0) + 1}`] };
+                                                    setCampoEmEdicao(atualizado);
+                                                    setCampos(campos.map(c => c.id === campo.id ? atualizado : c));
+                                                }} className="text-xs font-bold text-[#5fb0a5] hover:underline mt-2">+ Adicionar Opção</button>
+                                            </div>
+                                        </div>
+                                    </div>
                                 )}
 
-                                <div className="flex gap-6 border-t border-slate-00 pt-3">
-                                  <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none">
-                                    <input type="checkbox" checked={campoEmEdicao.required} 
+                                <div className="flex gap-6 border-t border-slate-200 pt-3">
+                                  <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                                    <input type="checkbox" checked={campoEmEdicao.obrigatorio} 
                                       onChange={(e) => {
-                                        const atualizado = { ...campoEmEdicao, required: e.target.checked };
+                                        const atualizado = { ...campoEmEdicao, obrigatorio: e.target.checked };
                                         setCampoEmEdicao(atualizado);
                                         setCampos(campos.map(c => c.id === campo.id ? atualizado : c));
                                       }}
                                     />
                                     Obrigatório
                                   </label>
-                                  <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none">
+                                  <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
                                     <input type="checkbox" checked={campoEmEdicao.editableInPhases} 
                                       onChange={(e) => {
                                         const atualizado = { ...campoEmEdicao, editableInPhases: e.target.checked };
@@ -271,8 +299,7 @@ export default function ConfiguracaoCard({ modeloCard, setModeloCard, setPaginaA
                                     Editável em outras fases
                                   </label>
                                 </div>
-                                
-                                <button onClick={() => setCampoEmEdicao(null)} className="w-full mt-4 bg-[#00557f] text-white py-1 rounded text-sm font-bold">Concluir Edição</button>
+                                <button onClick={() => setCampoEmEdicao(null)} className="w-full mt-4 bg-[#00557f] text-white py-2 rounded-lg text-sm font-bold shadow-sm">Concluir Edição</button>
                               </div>
                             )}
                           </div>

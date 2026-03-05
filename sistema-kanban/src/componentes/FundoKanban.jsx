@@ -6,6 +6,7 @@ import {
   UploadCloud, AlertTriangle, GitMerge, Type, CheckSquare, Phone, Tag 
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
+import CondicionaisCampo from './CondicionaisCampo';
 import { useForm } from 'react-hook-form';
 
 const TIPOS_DE_CAMPOS = [
@@ -44,6 +45,7 @@ export const NotificacaoToast = ({ mensagem, visivel }) => {
 export const CampoDinamico = ({ campo, register, equipe, setValue, watch, dados }) => {
     const estiloBase = "w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#5fb0a5] focus:ring-4 focus:ring-[#5fb0a5]/10 transition-all text-sm font-medium text-slate-700 shadow-sm";
     
+    const tipoDoCampo = campo.tipo || campo.type;
     const moedas = [
         { label: 'R$ - Real', value: 'BRL' },
         { label: 'U$ - Dólar', value: 'USD' },
@@ -51,8 +53,9 @@ export const CampoDinamico = ({ campo, register, equipe, setValue, watch, dados 
         { label: '£ - Libra', value: 'GBP' }
     ];
 
-    switch (campo.tipo) {
+    switch (tipoDoCampo) {
         case 'anexo':
+        case 'attachment': // Pega o modelo antigo
             return (
                 <div className="relative group">
                     <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-300 rounded-2xl cursor-pointer bg-slate-50 hover:bg-white hover:border-[#5fb0a5] transition-all group">
@@ -253,7 +256,7 @@ export const CampoDinamico = ({ campo, register, equipe, setValue, watch, dados 
 // ==========================================
 // MODAL DE CONFIGURAÇÃO DE FASE (Admin)
 // ==========================================
-const ModalConfigFase = ({ coluna, fechar, salvarConfig, deletarFase, mostrarNotificacao }) => {
+const ModalConfigFase = ({ coluna, fechar, salvarConfig, deletarFase, mostrarNotificacao, dados, setDados }) => {
     const cliqueNoFundo = (e) => {
         if (e.target.id === "fundo-modal-config") fechar();
     };
@@ -322,17 +325,27 @@ const ModalConfigFase = ({ coluna, fechar, salvarConfig, deletarFase, mostrarNot
             
             {/* Modal de Condicionais (Sobreposto) */}
             {modalCondicionaisAberto && (
-                <div id="modal-condicionais" onClick={(e) => {if(e.target.id === "modal-condicionais") setModalCondicionaisAberto(false)}} className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-                    <div className="bg-white/95 backdrop-blur-2xl rounded-[2rem] shadow-2xl w-[600px] h-[500px] p-8 border border-white/50 flex flex-col animate-in zoom-in-95 duration-200">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-2xl font-black text-[#00557f] flex items-center gap-2"><GitMerge className="text-[#5fb0a5]"/> Condicionais em Campo</h3>
-                            <button onClick={() => setModalCondicionaisAberto(false)} className="p-2 hover:bg-slate-100 rounded-full"><X size={20}/></button>
-                        </div>
-                        <div className="flex-1 flex items-center justify-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50">
-                            <p className="text-slate-400 font-medium">Área reservada para lógica de condicionais (Em breve).</p>
-                        </div>
-                    </div>
-                </div>
+                <CondicionaisCampo 
+                    tituloCard={coluna.title} 
+                    regrasSalvas={coluna.regrasCondicionais || []}
+                    dadosKanban={dados} 
+                    aoFechar={() => setModalCondicionaisAberto(false)} 
+                    aoSalvar={(listaAtualizadaDeRegras) => {
+                        // AGORA VAI FUNCIONAR: Usando setDados que foi passado do FundoKanban
+                        setDados({
+                            ...dados,
+                            columns: {
+                                ...dados.columns,
+                                [coluna.id]: {
+                                    ...dados.columns[coluna.id],
+                                    regrasCondicionais: listaAtualizadaDeRegras
+                                }
+                            }
+                        });
+                        setModalCondicionaisAberto(false);
+                        mostrarNotificacao("Regras de condicionais salvas!");
+                    }}
+                />
             )}
 
             <div className="bg-white/95 backdrop-blur-2xl rounded-[2rem] shadow-[0_0_50px_rgba(0,85,127,0.4)] w-full max-w-[1100px] h-[85vh] flex flex-col overflow-hidden border border-white/40 animate-in zoom-in-95 duration-300">
@@ -455,6 +468,7 @@ const ModalConfigFase = ({ coluna, fechar, salvarConfig, deletarFase, mostrarNot
 // MODAL: EDITAR CARD (Usuário)
 // ==========================================
 const ModalEditarCard = ({ card, dados, setDados, modeloCard, fechar, equipe, mostrarNotificacao }) => {
+
     const colunaAtualId = Object.keys(dados.columns).find(colId => dados.columns[colId].cardIds.includes(card.id));
     const colunaAtual = dados.columns[colunaAtualId];
     const camposFase = colunaAtual.configuracaoEntrada || [];
@@ -462,6 +476,8 @@ const ModalEditarCard = ({ card, dados, setDados, modeloCard, fechar, equipe, mo
     const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm({
     defaultValues: card.dadosFases?.[colunaAtualId] || {}
     });
+
+    const valoresAtuais = watch();
 
     const moverCard = (destinoColId) => {
         const novaOrigemCardIds = colunaAtual.cardIds.filter(id => id !== card.id);
@@ -503,6 +519,35 @@ const ModalEditarCard = ({ card, dados, setDados, modeloCard, fechar, equipe, mo
         setDados({ ...dados, cards: novosCards, columns: novasCols });
         fechar();
     };
+
+        // FUNÇÃO DE LÓGICA CONDICIONAL (Versão corrigida para o ModalEditarCard)
+    const verificarSeCampoDeveAparecer = (idDoCampoAtual) => {
+    const colunaObj = dados.columns[colunaAtualId];
+    const regras = colunaObj?.regrasCondicionais || [];
+    
+    if (regras.length === 0) return true;
+
+    let deveExibir = true;
+    let afetado = false;
+
+    regras.forEach(regra => {
+        const pos = regra.acoesPositivas?.find(a => a.campoId === idDoCampoAtual);
+        const neg = regra.acoesNegativas?.find(a => a.campoId === idDoCampoAtual);
+
+        if (pos || neg) {
+            afetado = true;
+            const gatilhoId = regra.cenarios[0]?.campoId;
+            const valor = valoresAtuais[gatilhoId]; // No modal usamos o estado valoresAtuais
+
+            const estaPreenchido = valor && valor.toString().trim() !== "" && valor !== false;
+
+            if (estaPreenchido && pos) deveExibir = pos.acao === 'exibir';
+            else if (!estaPreenchido && neg) deveExibir = neg.acao === 'exibir';
+        }
+    });
+
+    return afetado ? deveExibir : true;
+};
 
     return (
         <div id="modal-backdrop-card" onClick={(e) => {if(e.target.id === "modal-backdrop-card") fechar()}} className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
@@ -618,15 +663,21 @@ const ModalEditarCard = ({ card, dados, setDados, modeloCard, fechar, equipe, mo
                                     <p className="text-slate-500">Esta fase não possui campos adicionais configurados pelo admin.</p>
                                 </div>
                             ) : (
-                                camposFase.map(campo => (
-                                    <div key={campo.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                                        <label className="block text-sm font-bold text-slate-700 mb-1">
-                                            {campo.label} {campo.obrigatorio && <span className="text-red-500">*</span>}
-                                        </label>
-                                        {campo.ajuda && <p className="text-xs text-slate-400 mb-4">{campo.ajuda}</p>}
-                                        <CampoDinamico campo={campo} register={register} equipe={equipe} setValue={setValue} watch={watch} />
-                                    </div>
-                                ))
+                                camposFase.map(campo => {
+                                    // 2. AQUI ESTÁ A APLICAÇÃO DA LÓGICA NO FORMULÁRIO
+                                    const visivel = verificarSeCampoDeveAparecer(campo.id);
+                                    if (!visivel) return null;
+
+                                    return (
+                                        <div key={campo.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+                                            <label className="block text-sm font-bold text-slate-700 mb-1">
+                                                {campo.label} {campo.obrigatorio && <span className="text-red-500">*</span>}
+                                            </label>
+                                            {campo.ajuda && <p className="text-xs text-slate-400 mb-4">{campo.ajuda}</p>}
+                                            <CampoDinamico campo={campo} register={register} equipe={equipe} setValue={setValue} watch={watch} dados={dados} />
+                                        </div>
+                                    );
+                                })
                             )}
                         </form>
                     </div>
@@ -747,6 +798,8 @@ export default function FundoKanban({ dados, setDados, usuarioAtual, logado, mod
                 salvarConfig={salvarConfigFase}
                 deletarFase={deletarColuna}
                 mostrarNotificacao={mostrarNotificacao}
+                dados={dados}
+                setDados={setDados} 
             />
         )}
 
